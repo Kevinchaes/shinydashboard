@@ -9,6 +9,14 @@
 #'   provided, it will try to extract the title from the \code{dashboardHeader}.
 #' @param skin A color theme. One of \code{"blue"}, \code{"black"},
 #'   \code{"purple"}, \code{"green"}, \code{"red"}, or \code{"yellow"}.
+#' @param theme One of the following:
+#'   * `NULL` (the default), which implies a "stock" build of Bootstrap 3.
+#'   * A [bslib::bs_theme()] object. This can be used to replace a stock
+#'   build of Bootstrap 3 with a customized version of Bootstrap 3.
+#'   * A character string pointing to an alternative Bootstrap stylesheet
+#'   (normally a css file within the www directory, e.g. `www/bootstrap.css`).
+#'
+#'  @inheritParams shiny::bootstrapPage
 #'
 #' @seealso \code{\link{dashboardHeader}}, \code{\link{dashboardSidebar}},
 #'   \code{\link{dashboardBody}}.
@@ -29,12 +37,23 @@
 #' }
 #' @export
 dashboardPage <- function(header, sidebar, body, title = NULL,
-  skin = c("blue", "black", "purple", "green", "red", "yellow")) {
+  skin = c("blue", "black", "purple", "green", "red", "yellow"),
+  theme = NULL, lang = NULL) {
 
+  header <- as.tags(header)
   tagAssert(header, type = "header", class = "main-header")
   tagAssert(sidebar, type = "aside", class = "main-sidebar")
   tagAssert(body, type = "div", class = "content-wrapper")
   skin <- match.arg(skin)
+  if (is_bs_theme(theme)) {
+    if (!identical(bslib::theme_version(theme), "4")) {
+      stop(
+        "Using `bslib::bs_theme()` with `dashboardPage()`, ",
+        "currently requires Bootstrap 4; that is, ",
+        "`bslib::bs_theme(version = 4, ...)`"
+      )
+    }
+  }
 
   extractTitle <- function(header) {
     x <- header$children[[2]]
@@ -61,13 +80,17 @@ dashboardPage <- function(header, sidebar, body, title = NULL,
   # the user set the `collapsed` argument of `dashboardSidebar` to TRUE
   collapsed <- findAttribute(sidebar, "data-collapsed", "true")
 
-  addDeps(
-    tags$body(
-      # the "sidebar-collapse" class on the body means that the sidebar should
-      # the collapsed (AdminLTE code)
-      class = paste0("skin-", skin, if (collapsed) " sidebar-collapse"),
-      style = "min-height: 611px;",
-      shiny::bootstrapPage(content, title = title)
-    )
+  tags$body(
+    # the "sidebar-collapse" class on the body means that the sidebar should
+    # the collapsed (AdminLTE code)
+    class = paste0("skin-", skin, if (collapsed) " sidebar-collapse"),
+    style = "min-height: 611px;",
+    shiny::bootstrapPage(content, title = title, theme = theme, lang = lang),
+    if (is_bs_theme(theme)) bslib::bs_dependency_defer(dashboard_dependencies) else dashboard_dependencies()
   )
+}
+
+is_bs_theme <- function(x) {
+  if (!"bslib" %in% loadedNamespaces()) return(FALSE)
+  bslib::is_bs_theme(x)
 }

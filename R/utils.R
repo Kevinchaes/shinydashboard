@@ -8,6 +8,10 @@
 #'   contents.
 #' @keywords internal
 tagAssert <- function(tag, type = NULL, class = NULL, allowUI = TRUE) {
+  if (inherits(tag, "shiny.tag.function")) {
+    return()
+  }
+
   if (!inherits(tag, "shiny.tag")) {
     print(tag)
     stop("Expected an object with class 'shiny.tag'.")
@@ -218,4 +222,10 @@ findAttribute <- function(x, attr, val) {
   }
 
   return(FALSE) # found no attribute called `attr`
+}
+
+
+get_current_theme <- function() {
+  get_theme <- asNamespace("shiny")$getCurrentTheme
+  if (is.function(get_theme)) get_theme() else NULL
 }

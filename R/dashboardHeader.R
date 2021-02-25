@@ -88,10 +88,18 @@
 #' @export
 dashboardHeader <- function(..., title = NULL, titleWidth = NULL, disable = FALSE, .list = NULL) {
   items <- c(list(...), .list)
-  lapply(items, tagAssert, type = "li", class = "dropdown")
-
+  #lapply(items, tagAssert, type = "li", class = "dropdown")
   titleWidth <- validateCssUnit(titleWidth)
 
+  # TODO: generalize this tagFunction() pattern?
+  tagFunction(function() {
+    theme <- get_current_theme()
+    func <- if (!is_bs_theme(theme)) bs3_header else bs4_header
+    func(items, title, titleWidth, disable)
+  })
+}
+
+bs3_header <- function(items, title, titleWidth, disable) {
   # Set up custom CSS for custom width.
   custom_css <- NULL
   if (!is.null(titleWidth)) {
@@ -129,6 +137,26 @@ dashboardHeader <- function(..., title = NULL, titleWidth = NULL, disable = FALS
           items
         )
       )
+    )
+  )
+}
+
+bs4_header <- function(items, title, titleWidth, disable) {
+  # TODO: do we need the custom css? disable option!
+  tags$nav(
+    class = "main-header navbar navbar-expand",
+    tags$ul(
+      class = "navbar-nav",
+      tags$li(
+        class = "nav-item",
+        tags$a(
+          class = "nav-link",
+          `data-widget` = "pushmenu",
+          href = "#",
+          shiny::icon("bars")
+        )
+      ),
+      items
     )
   )
 }
@@ -195,6 +223,16 @@ dropdownMenu <- function(...,
     headerText <- paste("You have", numItems, type)
   }
 
+  # TODO: generalize this tagFunction() pattern?
+  tagFunction(function() {
+    theme <- get_current_theme()
+    func <- if (!is_bs_theme(theme)) bs3_dropdown_menu else bs4_dropdown_menu
+    func(items, icon, badge, headerText, dropdownClass)
+  })
+}
+
+
+bs3_dropdown_menu <- function(items, icon, badge, headerText, dropdownClass) {
   tags$li(class = dropdownClass,
     a(href = "#", class = "dropdown-toggle", `data-toggle` = "dropdown",
       icon,
@@ -211,9 +249,28 @@ dropdownMenu <- function(...,
       # tags$li(class = "footer", a(href="#", "View all"))
     )
   )
-
 }
 
+bs4_dropdown_menu <- function(items, icon, badge, headerText, dropdownClass) {
+  items <- lapply(items, function(x) {
+    tagList(x, div(class = "dropdown-divider"))
+  })
+
+  tags$li(
+    class = dropdownClass,
+    class = "nav-item",
+    a(
+      href = "#", class = "nav-link",
+      `data-toggle` = "dropdown", icon, badge
+    ),
+    tags$ul(
+      class = "dropdown-menu dropdown-menu-lg dropdown-menu-right",
+      tags$span(class = "dropdown-item dropdown-header", headerText),
+      div(class = "dropdown-divider"),
+      items
+    )
+  )
+}
 
 
 #' Create a message item to place in a dropdown message menu
@@ -236,6 +293,14 @@ messageItem <- function(from, message, icon = shiny::icon("user"), time = NULL,
   tagAssert(icon, type = "i")
   if (is.null(href)) href <- "#"
 
+  tagFunction(function() {
+    theme <- get_current_theme()
+    func <- if (!is_bs_theme(theme)) bs3_message_item else bs4_message_item
+    func(from, message, icon, time, href)
+  })
+}
+
+bs3_message_item <- function(from, message, icon, time, href) {
   tags$li(
     a(href = href,
       icon,
@@ -244,6 +309,27 @@ messageItem <- function(from, message, icon = shiny::icon("user"), time = NULL,
         if (!is.null(time)) tags$small(shiny::icon("clock-o"), time)
       ),
       p(message)
+    )
+  )
+}
+
+bs4_message_item <- function(from, message, icon, time, href) {
+  a(
+    href = href,
+    class = "dropdown-item",
+    div(
+      class = "media",
+      icon,
+      div(
+        class = "media-body",
+        h3(class = "dropdown-item-title", from),
+        p(class = "text-sm", message),
+        p(
+          class = "text-sm text-muted",
+          shiny::icon("clock-o", class = "mr-1"),
+          time
+        )
+      )
     )
   )
 }
@@ -268,11 +354,21 @@ notificationItem <- function(text, icon = shiny::icon("warning"),
   if (is.null(href)) href <- "#"
 
   # Add the status as another HTML class to the icon
-  icon <- tagAppendAttributes(icon, class = paste0("text-", status))
+  icon <- tagAppendAttributes(icon, class = paste0("text-", status), class = "mr-2")
 
-  tags$li(
-    a(href = href, icon, text)
-  )
+  tagFunction(function() {
+    theme <- get_current_theme()
+    func <- if (!is_bs_theme(theme)) bs3_notification else bs4_notification
+    func(text, icon, href)
+  })
+}
+
+bs3_notification <- function(text, icon, href) {
+  tags$li(a(href = href, icon, text))
+}
+
+bs4_notification <- function(text, icon, href) {
+  a(class = "dropdown-item", href = href, icon, text)
 }
 
 
@@ -291,24 +387,54 @@ taskItem <- function(text, value = 0, color = "aqua", href = NULL) {
   validateColor(color)
   if (is.null(href)) href <- "#"
 
+  tagFunction(function() {
+    theme <- get_current_theme()
+    func <- if (!is_bs_theme(theme)) bs3_task_item else bs4_task_item
+    func(text, value, color, href)
+  })
+}
+
+
+bs3_task_item <- function(text, value, color, href) {
   tags$li(
     a(href = href,
       h3(text,
-        tags$small(class = "pull-right", paste0(value, "%"))
+         tags$small(class = "pull-right", paste0(value, "%"))
       ),
       div(class = "progress xs",
-        div(
-          class = paste0("progress-bar progress-bar-", color),
-          style = paste0("width: ", value, "%"),
-          role = "progressbar",
-          `aria-valuenow` = value,
-          `aria-valuemin` = "0",
-          `aria-valuemax` = "100",
-          span(class = "sr-only", paste0(value, "% complete"))
-        )
+          div(
+            class = paste0("progress-bar progress-bar-", color),
+            style = paste0("width: ", value, "%"),
+            role = "progressbar",
+            `aria-valuenow` = value,
+            `aria-valuemin` = "0",
+            `aria-valuemax` = "100",
+            span(class = "sr-only", paste0(value, "% complete"))
+          )
       )
     )
   )
 }
 
+bs4_task_item <- function(text, value, color, href) {
+    a(
+      href = href,
+      class = "dropdown-item",
+      div(
+        style = "display:flex; justify-content: space-between",
+        div(text), div(class = "text-sm text-muted", paste0(value, "%"))
+      ),
+      div(class = "progress xs",
+          div(
+            class = paste0("progress-bar bg-", color),
+            style = paste0("width: ", value, "%"),
+            role = "progressbar",
+            `aria-valuenow` = value,
+            `aria-valuemin` = "0",
+            `aria-valuemax` = "100",
+            span(class = "sr-only", paste0(value, "% complete"))
+          )
+      )
+    )
+}
 
